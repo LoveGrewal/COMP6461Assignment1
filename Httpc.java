@@ -57,17 +57,50 @@ class RequestDetails{
 	
 }
 
-public class HttpClient {
+public class Httpc {
     public static void main(String[] args) throws Exception{
     	RequestDetails requestDetails = new RequestDetails();
-    	requestDetails.setVerbose(false);
+    	/*requestDetails.setVerbose(false);
     	requestDetails.setHost("www.httpbin.org");
     	requestDetails.setRequestType("POST");
     	requestDetails.setPort(80);
     	requestDetails.setUrlFull("http://httpbin.org/post");
-    	requestDetails.setInlineData("{\"Assignment\": 1}");
-    	HttpClient hc = new HttpClient();
-    	hc.printResult(requestDetails, hc.getResponseFromHttpCall(requestDetails));
+    	requestDetails.setInlineData("{\"Assignment\": 1}");*/
+    	Httpc hc = new Httpc();
+        
+    	if(args.length>0) {
+    		String firstArg = args[0].toUpperCase();
+    		switch (firstArg) {
+        	case "HELP": if(args.length==1) {
+        		System.out.println("httpc is a curl-like application but supports HTTP protocol only.");
+        		System.out.println("Usage:");
+        		System.out.println("    httpc command [arguments]");
+        		System.out.println("The commands are:");
+        		System.out.println("    get executes a HTTP GET request and prints the response.");
+        		System.out.println("    post executes a HTTP POST request and prints the response.");
+        		System.out.println("    help prints this screen.");
+        		System.out.println("Use \"httpc help [command]\" for more information about a command.");
+        	}else if(args.length>1 && args[1].equalsIgnoreCase("GET")) {
+        		System.out.println("httpc help get");
+        		System.out.println("usage: httpc get [-v] [-h key:value] URL");
+        		System.out.println("Get executes a HTTP GET request for a given URL.");
+        		System.out.println("   -v             Prints the detail of the response such as protocol, status, and headers.");
+        		System.out.println("   -h             key:value Associates headers to HTTP Request with the format 'key:value'.");
+        	}else if(args.length>1 && args[1].equalsIgnoreCase("POST")) {
+        		System.out.println("httpc help post");
+        		System.out.println("usage: httpc post [-v] [-h key:value] [-d inline-data] [-f file] URL");
+        		System.out.println("Post executes a HTTP POST request for a given URL with inline data or from file.");
+        		System.out.println("   -v             Prints the detail of the response such as protocol, status, and headers.");
+        		System.out.println("   -h             key:value Associates headers to HTTP Request with the format 'key:value'.");
+        		System.out.println("   -d             string Associates an inline data to the body HTTP POST request.");
+        		System.out.println("   -f             file Associates the content of a file to the body HTTP POST request.");
+        		System.out.println("Either [-d] or [-f] can be used but not both.");
+        	}break;
+        	case "GET":
+        	case "POST"://hc.makeRequestObject(args, requestDetails);
+        		hc.printResult(requestDetails, hc.getResponseFromHttpCall(requestDetails));
+        	}
+    	}
 
         
     }
@@ -95,7 +128,7 @@ public class HttpClient {
             	
             	bufferedWriter.write(defaultContentType+"\r\n");
             	//bufferedWriter.write(requestDetails.getInlineData()+"\r\n");
-            	bufferedWriter.write("User-Agent:Concordia-HTTP/1.0\r\n");
+            	//bufferedWriter.write("User-Agent:Concordia-HTTP/1.0\r\n");
             	//bufferedWriter.write("User-Agent:" + "Concordia-HTTP/1.0" + "\r\n");
             }
             bufferedWriter.write("\r\n");
