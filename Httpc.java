@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -23,6 +24,28 @@ class RequestDetails {
 	Boolean verbose;
 	String inlineData;
 	List<String> headers;
+	String fileName;
+	String getQueryParams;
+	
+	public String getGetQueryParams() {
+		return getQueryParams;
+	}
+
+	public void setGetQueryParams(String getQueryParams) {
+		this.getQueryParams = getQueryParams;
+	}
+
+	public String getFileName() {
+		return fileName;
+	}
+
+	public void setFileName(String fileName) {
+		this.fileName = fileName;
+	}
+
+	public void setHeaders(List<String> headers) {
+		this.headers = headers;
+	}
 
 	public void addHeaders(String newHeaders) {
 		if (headers == null) {
@@ -154,7 +177,7 @@ public class Httpc {
 	 *
 	 * @param parameters parameters passed in arguments
 	 */
-	public void makeRequestObject(String[] parameters, RequestDetails newRequest)throws Exception {
+	public void makeRequestObject(String[] parameters, RequestDetails newRequest) throws Exception {
 		newRequest.setVerbose(false);
 
 		for (int i = 0; i < parameters.length; i++) {
@@ -169,10 +192,13 @@ public class Httpc {
 				newRequest.addHeaders(parameters[i + 1]);
 			}
 			if (parameters[i].equalsIgnoreCase("-d")) {
-				newRequest.setInlineData(parameters[i + 1]);
+				newRequest.setInlineData(parameters[i + 1].replace("'", " ").trim());
 			}
 			if (parameters[i].equalsIgnoreCase("-f")) {
 				newRequest.setInlineData(readFromFile(parameters[i + 1]));
+			}
+			if (parameters[i].equalsIgnoreCase("-o")) {
+				newRequest.setFileName(parameters[i + 1]);
 			}
 			String host = null;
 			if (parameters[i].startsWith("'")) {
@@ -186,6 +212,7 @@ public class Httpc {
 				int temp = host.length();
 				if (host.contains("?")) {
 					temp = host.indexOf("?");
+					newRequest.setGetQueryParams(host.substring(temp, host.length()));
 				}
 				host = (host.substring(0, temp));
 				temp = host.length();
@@ -202,7 +229,7 @@ public class Httpc {
 
 	}
 
-	public String readFromFile(String path)throws Exception {
+	public String readFromFile(String path) throws Exception {
 		// This will reference one line at a time
 		String line = null;
 		String inlineData = null;
@@ -215,8 +242,9 @@ public class Httpc {
 
 			while ((line = bufferedReader.readLine()) != null) {
 				if (inlineData == null)
-                    inlineData = line;
-                else inlineData = inlineData + line;
+					inlineData = line;
+				else
+					inlineData = inlineData + line;
 			}
 			// Always close files.
 			bufferedReader.close();
@@ -232,8 +260,16 @@ public class Httpc {
 		}
 	}
 
+	public void saveResultInFile(String result, String fileName) throws Exception {
+		FileWriter file = new FileWriter(fileName + ".txt", true);
+		BufferedWriter bufferedWriter = new BufferedWriter(file);
+		bufferedWriter.append(result);
+		bufferedWriter.close();
+
+	}
+
 	public InputStream getResponseFromHttpCall(RequestDetails requestDetails) {
-		String defaultContentType = "Content-Type:application/json";
+		// String defaultContentType = "Content-Type:application/json";
 
 		try {
 			InetAddress inetAddress = InetAddress.getByName(requestDetails.getHost().trim());
@@ -281,20 +317,73 @@ public class Httpc {
 			return null;
 		}
 	}
+	
+	public void redirectWithRequest(RequestDetails requestDetails, BufferedReader br) {
+		String resultLine;
+		
+		try {
+			while ((resultLine = br.readLine()) != null) {
+				if (resultLine.contains("Location")) {
+					resultLine = resultLine.split(":")[1].trim();
+					String originalLocation = resultLine;
+					int temp;
+					//requestDetails.setUrlFull(urlFull); = textFromServer.substring(10);
+					if (resultLine.contains("https://")) {
+						resultLine = resultLine.replace("https://", " ");
+					} else if (resultLine.contains("http://")) {
+						resultLine = resultLine.replace("http://", " ");
+					}
+                    if (resultLine.contains("/")) {
+    					temp = resultLine.indexOf("/");
+    					resultLine = resultLine.substring(0, temp).trim();
+    					if(resultLine != null && !resultLine.trim().isEmpty()) {
+    						requestDetails.setHost(resultLine);
+    					}
+    				}
+    				if(originalLocation.contains("?")) {
+    					requestDetails.setUrlFull(originalLocation);
+    				}else if(requestDetails.getQueryParams != null){
+    					requestDetails.setUrlFull(originalLocation+requestDetails.getQueryParams); 
+    				}
+                    break;
+                }
+			}
+			printResult(requestDetails, getResponseFromHttpCall(requestDetails));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			System.out.print("Error in parsing result");
+		}
+	}
 
 	public void printResult(RequestDetails requestDetails, InputStream result) {
 		BufferedReader br = new BufferedReader(new InputStreamReader(result));
 		String resultLine;
+		StringBuilder resultToDisplay = new StringBuilder("");
+		boolean isRedirect = false;
 		try {
 			while ((resultLine = br.readLine()) != null) {
+				if (resultLine.contains("HTTP") && (resultLine.contains("300") || resultLine.contains("301") || resultLine.contains("302")
+						|| resultLine.contains("303") || resultLine.contains("304") || resultLine.contains("305")
+						|| resultLine.contains("306") || resultLine.contains("307") || resultLine.contains("308"))) {
+					redirectWithRequest(requestDetails, br);
+					isRedirect = true;
+					break;
+				}
 				if (resultLine.contains("{")) {
 					requestDetails.setVerbose(true);
 				}
 				if (requestDetails.getVerbose()) {
-					System.out.println(resultLine);
+					resultToDisplay.append(resultLine + "\n");
 				}
 			}
-		} catch (IOException e) {
+			if (!isRedirect && requestDetails.getFileName() == null) {
+				System.out.println(resultToDisplay.toString());
+			} else if(!isRedirect) {
+				saveResultInFile(resultToDisplay.toString(), requestDetails.getFileName());
+				System.out.println("response saved in file");
+			}
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.print("Error in parsing result");
