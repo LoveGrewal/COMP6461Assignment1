@@ -10,9 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,12 +109,6 @@ class RequestDetails {
 public class Httpc {
 	public static void main(String[] args) throws Exception {
 		RequestDetails requestDetails = new RequestDetails();
-		/*
-		 * requestDetails.setVerbose(false); requestDetails.setHost("www.httpbin.org");
-		 * requestDetails.setRequestType("POST"); requestDetails.setPort(80);
-		 * requestDetails.setUrlFull("http://httpbin.org/post");
-		 * requestDetails.setInlineData("{\"Assignment\": 1}");
-		 */
 		Httpc hc = new Httpc();
 
 		if (args.length > 0) {
@@ -176,6 +168,7 @@ public class Httpc {
 	 * To create request object from parameters passed
 	 *
 	 * @param parameters parameters passed in arguments
+	 * @param newRequest Httpc request details
 	 */
 	public void makeRequestObject(String[] parameters, RequestDetails newRequest) throws Exception {
 		newRequest.setVerbose(false);
@@ -203,6 +196,9 @@ public class Httpc {
 			String host = null;
 			if (parameters[i].startsWith("'")) {
 				newRequest.setUrlFull(parameters[i].replace("'", " ").trim());
+				if(!newRequest.getUrlFull().contains("https://") && !newRequest.getUrlFull().contains("http://")) {
+					newRequest.setUrlFull("http://"+newRequest.getUrlFull());
+				}
 				host = parameters[i].replace("'", " ");
 				if (host.contains("https://")) {
 					host = host.replace("https://", " ");
@@ -269,12 +265,8 @@ public class Httpc {
 	}
 
 	public InputStream getResponseFromHttpCall(RequestDetails requestDetails) {
-		// String defaultContentType = "Content-Type:application/json";
-
 		try {
 			InetAddress inetAddress = InetAddress.getByName(requestDetails.getHost().trim());
-			// SocketAddress socketAddress = new InetSocketAddress(inetAddress,
-			// requestDetails.getPort());
 			Socket socket = new Socket(inetAddress, requestDetails.getPort());
 
 			// sending request
@@ -288,13 +280,6 @@ public class Httpc {
 			}
 			if ("POST".equalsIgnoreCase(requestDetails.getRequestType()) && requestDetails.getInlineData() != null) {
 				bufferedWriter.write("Content-Length:" + requestDetails.getInlineData().length() + "\r\n");
-
-				// temporary
-
-				// bufferedWriter.write(defaultContentType + "\r\n");
-				// bufferedWriter.write(requestDetails.getInlineData()+"\r\n");
-				// bufferedWriter.write("User-Agent:Concordia-HTTP/1.0\r\n");
-				// bufferedWriter.write("User-Agent:" + "Concordia-HTTP/1.0" + "\r\n");
 			}
 			if (requestDetails.getHeaders() != null && requestDetails.getHeaders().size() > 0) {
 				for (int i = 0; i < requestDetails.getHeaders().size(); i++) {
@@ -305,11 +290,8 @@ public class Httpc {
 			if (requestDetails.getInlineData() != null) {
 				bufferedWriter.write(requestDetails.getInlineData());
 			}
-			// bufferedWriter.write("");
 			bufferedWriter.flush();
 
-			// bufferedWriter.close();
-			// socket.close();
 			return socket.getInputStream();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -324,10 +306,10 @@ public class Httpc {
 		try {
 			while ((resultLine = br.readLine()) != null) {
 				if (resultLine.contains("Location")) {
-					resultLine = resultLine.split(":")[1].trim();
+					int temp = resultLine.indexOf(":");
+					resultLine = resultLine.substring((temp+1), resultLine.length()).trim();
 					String originalLocation = resultLine;
-					int temp;
-					//requestDetails.setUrlFull(urlFull); = textFromServer.substring(10);
+					
 					if (resultLine.contains("https://")) {
 						resultLine = resultLine.replace("https://", " ");
 					} else if (resultLine.contains("http://")) {
@@ -340,9 +322,11 @@ public class Httpc {
     						requestDetails.setHost(resultLine);
     					}
     				}
-    				if(originalLocation.contains("?")) {
-    					requestDetails.setUrlFull(originalLocation);
-    				}else if(requestDetails.getQueryParams != null){
+    				/*if(originalLocation.contains("?") || originalLocation.contains("https://") || originalLocation.contains("http://")) {
+    					
+    				}*/
+    				requestDetails.setUrlFull(originalLocation);
+    				if(!originalLocation.contains("?") && requestDetails.getQueryParams != null){
     					requestDetails.setUrlFull(originalLocation+requestDetails.getQueryParams); 
     				}
                     break;
@@ -350,7 +334,6 @@ public class Httpc {
 			}
 			printResult(requestDetails, getResponseFromHttpCall(requestDetails));
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.print("Error in parsing result");
 		}
@@ -384,7 +367,6 @@ public class Httpc {
 				System.out.println("response saved in file");
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.print("Error in parsing result");
 		}
